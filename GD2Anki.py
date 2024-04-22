@@ -30,7 +30,9 @@ def request(action, **params):
 
 def invoke(action, **params):
     requestJson = json.dumps(request(action, **params)).encode('utf-8')
+    print(requestJson)
     response = json.load(urllib.request.urlopen(urllib.request.Request('http://localhost:8765', requestJson)))
+    print(response)
     if len(response) != 2:
         raise Exception('response has an unexpected number of fields')
     if 'error' not in response:
@@ -63,18 +65,20 @@ def NoteContent(dic_deck,FrontStr, BackStr):
 
     return newnote
 
-def consolidate_CSS_into_HTML(strHtml):
+def consolidate_CSS_into_HTML(strHtml, dict_path):
     soup = bs4.BeautifulSoup(strHtml,features="lxml")
     stylesheets = soup.findAll("link", {"rel": "stylesheet"})
     for s in stylesheets:
         t = soup.new_tag('style')
+        if(os.path.dirname(s["href"]) == ""):
+            s["href"] = dict_path + '\\' + s["href"]
         if(os.path.isfile(s["href"])):
-            c = bs4.element.NavigableString(open(s["href"]).read())
+            c = bs4.element.NavigableString(open(s["href"], encoding="utf8").read())
             t.insert(0,c)
             t['type'] = 'text/css'
             s.replaceWith(t)
         else:
-            print("css file" + s["href"] + "not found")
+            print("css file " + s["href"] + " not found")
             continue
     return str(soup)
 
@@ -122,6 +126,8 @@ if __name__ == '__main__':
         mdict=mdict_files[dict_file] 
         # https://note.nkmk.me/en/python-os-basename-dirname-split-splitext/#get-the-extension-without-dot-period
         ext_without_dot = os.path.splitext(mdict)[1][1:]
+        dict_path =  os.path.dirname(mdict)
+        # print(dict_path)
         if(ext_without_dot!="mdx"):
             tkinter.messagebox.showerror(title="Ini setting Error", message="Dict file is not mdx")
             exit()
@@ -133,7 +139,8 @@ if __name__ == '__main__':
         # str_content = Meanings.decode('utf-8')
         Meanings='\n' . join(Meanings_In_This_Dict)
         Meanings="<H1>"+mdict_short_name+"</H1>"+Meanings
-        Meanings_with_CSS=consolidate_CSS_into_HTML(Meanings)
+        # Meanings = Meanings.decode('utf-8')
+        Meanings_with_CSS=consolidate_CSS_into_HTML(Meanings, dict_path)
         Meanings_with_CSS_inlined = css_inline.inline(Meanings_with_CSS)
         if (All_Meanings==""):
             All_Meanings=Meanings_with_CSS_inlined
@@ -157,6 +164,7 @@ if __name__ == '__main__':
     user_card_template={"dname":deck_name,"mname":modle_name,"cfname":card_front_name,"cbname":card_back_name}
     CardNote=NoteContent(user_card_template,Word, All_Meanings)
     newnote=json.loads(CardNote,strict=False)
+    # print(newnote)
 
     try:
         result = invoke('addNote',note=newnote)
